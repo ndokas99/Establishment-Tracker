@@ -40,46 +40,50 @@
             <input id="km" class="input-group-text" type="number" placeholder="Enter distance in km">
 		</div>
 		<h5 class="card-footer">
-			<button onClick="enable();" class="btn btn-dark">Track Locations</button>
+			<button onClick="awaken();" class="btn btn-dark">Track Locations</button>
 		</h5>
 	</div>
 	<script>
-		/*function success(x, y){
-			window.location.href = "/track/";
-		}
-		function fail(){
-			success();
-			$('#error').show();
-		}*/
+        function awaken() {
+            if (navigator.geolocation){
+                let x = 1;
+                while(x<5){
+                    let geo = navigator.geolocation.watchPosition((position) => {console.log(x)},
+                                                                  () => {},
+                                                                  { maximumAge: 2000, timeout: 5000, enableHighAccuracy: true });
+                    window.navigator.geolocation.clearWatch(geo);
+                    x += 1;
+                }
+                enable()
+            }
+            else {
+                $(window).location.href = "/unsupported";
+            }
+        }
 		function enable(){
-			if (navigator.geolocation) {
-				navigator.geolocation.getCurrentPosition(
-				(position) => {
-				    km = $('#km');
-                    let data = {
-                        x: position.coords.latitude,
-                        y: position.coords.longitude,
-                        d: km.val()==='' ? 1.0 : Number.parseFloat(km.val())
-                    };
+            navigator.geolocation.getCurrentPosition(
+            (position) => {
+                km = $('#km');
+                let data = {
+                    x: position.coords.latitude,
+                    y: position.coords.longitude,
+                    d: km.val()==='' ? 1.0 : Number.parseFloat(km.val())
+                };
 
-                    fetch('/track', {
-                        method: "POST",
-                        credentials: "include",
-                        body: JSON.stringify(data),
-                        cache: "no-cache",
-                        headers: new Headers({
-                            'content-type': "application/json"
-                        })
-                    }).then(()=>{
-                        window.location.href = '/showMap';
-                    });
-				},() => {
-                    enable();
-				});
-			}
-			else{
-				$(window).location.href = "/unsupported";
-			}
+                fetch('/track', {
+                    method: "POST",
+                    credentials: "include",
+                    body: JSON.stringify(data),
+                    cache: "no-cache",
+                    headers: new Headers({
+                        'content-type': "application/json"
+                    })
+                }).then(()=>{
+                    window.location.href = '/showMap';
+                });
+            },() => {
+                enable();
+            },{ maximumAge: 3000, timeout: 5000, enableHighAccuracy: true });
 		}
 	</script>
 </body>

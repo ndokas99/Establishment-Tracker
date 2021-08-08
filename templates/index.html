@@ -12,21 +12,41 @@
             background: url({{ url_for('static', filename='media/images.jpeg') }}) no-repeat fixed;
             background-size: 100% 100%;
 		}
-		.card {
-			text-align: center;
-			width: 60% !important;
-			margin: 0;
-			position: absolute;
-			top: 50%;
-			left: 20%;
-			transform: translate(0%, -50%);
-		}
-        #km{
-            margin: auto;
-        }
 		button:hover {
 			color: red !important;
 		}
+        .card-footer{
+            text-align: center;
+        }
+        @media all and (max-width: 550px) {
+            .card {
+                text-align: left;
+                width: 100% !important;
+                margin: 0;
+                position: absolute;
+                top: 50%;
+                transform: translate(0%, -50%)
+		    }
+            #km {
+                margin: auto;
+                width: 80%;
+            }
+        }
+        @media all and (min-width: 551px) {
+            .card {
+                text-align: center;
+                width: 60% !important;
+                margin: 0;
+                position: absolute;
+                top: 50%;
+                left: 20%;
+                transform: translate(0%, -50%);
+            }
+            #km {
+                margin: auto;
+                width: 50%;
+            }
+        }
 	</style>
 	<title>Restaurant Tracker</title>
 </head>

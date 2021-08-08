@@ -148,7 +148,6 @@ def showMap():
         db.session.commit()
     except AttributeError:
         return redirect('/')
-
     return render_template("tracker.html", details=details)
 
 
@@ -182,4 +181,4 @@ scheduler.start()
 
 
 if __name__ == '__main__':
-    app.run()
+    app.run('0.0.0.0')

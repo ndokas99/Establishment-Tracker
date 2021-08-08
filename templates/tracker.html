@@ -12,25 +12,25 @@
             background: url({{ url_for('static', filename='media/images.jpeg') }}) no-repeat fixed;
             background-size: 100% 100%;
         }
-        .container-fluid {
-            width: 95%;
-            height: 90%;
+        .container-fluid{
+            -webkit-border-radius: .3rem;
+            -moz-border-radius: .3rem;
+            border-radius: .3rem;
+            background: #e9ecef;
+            padding: 0 0;
         }
-        .jumbotron{
-            padding: 0 !important;
-        }
-		.col {
+		.row div {
             padding: 0 0;
             margin: 0 0;
         }
-        .row .col:first-child{
+        .row div:first-child{
 			overflow-x: hidden;
 			overflow-y: auto;
 		}
 		.table {
 			border-left: 2px solid #0005;
 			border-right: 2px solid #0005;
-            margin-bottom: 0;
+            margin: 0 !important;
 		}
 		.table tr{
             text-align: center;
@@ -43,9 +43,9 @@
 			color: white;
 			background: grey;
 		}
-	.modal{
-	    margin-top: 10%;
-	}
+        .modal{
+            margin-top: 10%;
+        }
         .modal-header{
             color: white;
             background-color: #007bff;
@@ -63,6 +63,8 @@
         }
         @media all and (min-width: 551px) {
             .container-fluid {
+                width: 95%;
+                height: 90%;
                 position: absolute;
                 top: 50%;
                 transform: translate(5%, -50%);
@@ -84,31 +86,30 @@
         }
         @media all and (max-width: 550px) {
             .container-fluid {
-                margin-top: 5%;
-                margin-left: 2.5%;
+                margin: 0;
+                width: 100%;
             }
             .row {
                 display: grid;
+                /*grid-template-rows: 50% 50%;*/
             }
-            .row .col:first-child{
+            .row div:first-child{
                 border: hidden;
                 padding-bottom: 0;
                 max-width: 100%;
-                height: 300px;
             }
-            .row .col:last-child{
-                height: 600px;
+            .row div:last-child{
                 max-width: 100%;
             }
             td, th{
-                padding: 10px !important;
+                padding: 16px !important;
             }
         }
 	</style>
 	<title>Tracking restaurants</title>
 </head>
 <body>
-	<div class="row jumbotron container-fluid">
+	<div class="row container-fluid">
 		<div class="col">
 			<table class="table table-bordered">
 				<thead>
@@ -197,6 +198,15 @@
         </div>
     {% endfor %}
     <script>
+        function fixSizes(){
+            let height = window.innerHeight;
+            if(window.innerWidth <= 550){
+                $('.container-fluid').css("height", height);
+            }
+            else{
+                $('.container-fluid').css("height", "90%");
+            }
+        }
         $(window).ready(function() {
             $.ajax({
                 url: "/map",
@@ -209,7 +219,9 @@
                     }
                 },
             });
-        })
+            fixSizes();
+        });
+        $(window).resize(fixSizes);
     </script>
 </body>
 </html>

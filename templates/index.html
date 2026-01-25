@@ -1,5 +1,5 @@
 <!doctype html>
-<html>
+<html lang="eng">
 <head>
 	<meta charset="utf-8">
 	<meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -48,14 +48,14 @@
             }
         }
 	</style>
-	<title>Restaurant Tracker</title>
+	<title>Establishment Tracker</title>
 </head>
 <body>
 	<div class="card">
-		<h5 class="card-header">Restaurant Map Tracker</h5>
+		<h5 class="card-header">Establishment Tracker</h5>
 		<div class="card-body">
-			<p class="card-text">Restaurants within entered distance are marked on the map when it loads; Default is 1km.</p>
-			<p class="card-text">The restaurants will be listed in order of closest to furthest.</p>
+			<p class="card-text">Establishments within entered distance are marked on the map when it loads; Default is 1km.</p>
+			<p class="card-text">The establishments will be listed in order of closest to furthest.</p>
 			<p class="card-text">Press the button below to enable the location tracker and select <b>Allow</b>. You will be directed to map if tracker is functional.</p>
             <input id="km" class="input-group-text" type="number" placeholder="Enter distance in km">
 		</div>
@@ -68,7 +68,7 @@
             if (navigator.geolocation){
                 let x = 1;
                 while(x<5){
-                    let geo = navigator.geolocation.watchPosition((position) => {console.log(x)},
+                    let geo = navigator.geolocation.watchPosition(() => {},
                                                                   () => {},
                                                                   { maximumAge: 2000, timeout: 5000, enableHighAccuracy: true });
                     window.navigator.geolocation.clearWatch(geo);
@@ -83,7 +83,7 @@
 		function enable(){
             navigator.geolocation.getCurrentPosition(
             (position) => {
-                km = $('#km');
+                let km = $('#km');
                 let data = {
                     x: position.coords.latitude,
                     y: position.coords.longitude,

@@ -162,7 +162,7 @@ def embedMap():
 
 def create_database():
     if not path.exists("session.db"):
-        db.create_all(app=app)
+        db.create_all()
 
 
 def clearOldSession():
@@ -175,10 +175,10 @@ def clearOldSession():
         conn.execute('vacuum')
 
 
-create_database()
 scheduler.add_job('DBMaintainer', clearOldSession, trigger='interval', seconds=300)
 scheduler.start()
 
-
 if __name__ == '__main__':
-    app.run('0.0.0.0')
+    with app.app_context():
+        create_database()
+        app.run()

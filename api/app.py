@@ -12,7 +12,12 @@ from uuid import uuid4
 from os import path
 
 
-app = Flask(__name__)
+BASE_DIR = path.dirname(path.dirname(path.abspath(__file__)))
+
+app = Flask(__name__,
+            template_folder=path.join(BASE_DIR, "templates"),
+            static_folder=path.join(BASE_DIR, "static"))
+
 app.debug = False
 settings = {
     "SECRET_KEY": 'H475GGH58H4DG374H9GY48THT85',
@@ -47,15 +52,6 @@ def index():
         except IntegrityError:
             del session['sid']
             return url_for('index')
-
-
-@app.route('/favicon.ico')
-def favicon():
-    return send_from_directory(
-        path.join(app.root_path, 'static'),
-        'favicon.ico',
-        mimetype='image/vnd.microsoft.icon'
-    )
 
 
 @app.route('/unsupported')

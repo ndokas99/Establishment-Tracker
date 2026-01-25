@@ -1,5 +1,5 @@
 from flask import Flask, render_template, render_template_string, request, \
-    make_response, jsonify, session, redirect, url_for
+    make_response, jsonify, session, redirect, url_for, send_from_directory
 from sqlalchemy.exc import IntegrityError
 from flask_sqlalchemy import SQLAlchemy
 from flask_apscheduler import APScheduler
@@ -47,6 +47,15 @@ def index():
         except IntegrityError:
             del session['sid']
             return url_for('index')
+
+
+@app.route('/favicon.ico')
+def favicon():
+    return send_from_directory(
+        path.join(app.root_path, 'static'),
+        'favicon.ico',
+        mimetype='image/vnd.microsoft.icon'
+    )
 
 
 @app.route('/unsupported')
@@ -175,10 +184,10 @@ def clearOldSession():
         conn.execute('vacuum')
 
 
-scheduler.add_job('DBMaintainer', clearOldSession, trigger='interval', seconds=300)
-scheduler.start()
 
 if __name__ == '__main__':
     with app.app_context():
         create_database()
+        scheduler.add_job('DBMaintainer', clearOldSession, trigger='interval', seconds=300)
+        scheduler.start()
         app.run("0.0.0.0")

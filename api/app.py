@@ -9,8 +9,7 @@ from math import cos, sin, atan2, sqrt, pi
 from datetime import datetime
 from functools import lru_cache
 from uuid import uuid4
-from os import path
-
+from os import path, getenv
 
 BASE_DIR = path.dirname(path.dirname(path.abspath(__file__)))
 
@@ -18,10 +17,11 @@ app = Flask(__name__,
             template_folder=path.join(BASE_DIR, "templates"),
             static_folder=path.join(BASE_DIR, "static"))
 
+
 app.debug = False
 settings = {
     "SECRET_KEY": 'H475GGH58H4DG374H9GY48THT85',
-    "SQLALCHEMY_DATABASE_URI": 'sqlite:///session.db',
+    "SQLALCHEMY_DATABASE_URI": getenv('DATABASE_SQLALCHEMY_URL') or 'sqlite:///session.db',
     "SQLALCHEMY_TRACK_MODIFICATIONS": False,
 }
 app.config.update(settings)

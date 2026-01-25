@@ -181,4 +181,4 @@ scheduler.start()
 if __name__ == '__main__':
     with app.app_context():
         create_database()
-        app.run()
+        app.run("0.0.0.0")

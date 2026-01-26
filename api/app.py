@@ -1,12 +1,13 @@
 from flask import Flask, render_template, render_template_string, request, \
     make_response, jsonify, session, redirect, url_for, send_from_directory
+from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from flask_sqlalchemy import SQLAlchemy
 from flask_apscheduler import APScheduler
 from folium import Map, Icon, Marker, Circle
 from overpy import Overpass
 from math import cos, sin, atan2, sqrt, pi
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import lru_cache
 from uuid import uuid4
 from os import path, getenv
@@ -21,17 +22,20 @@ app = Flask(__name__,
 app.debug = False
 settings = {
     "SECRET_KEY": 'H475GGH58H4DG374H9GY48THT85',
-    "SQLALCHEMY_DATABASE_URI": getenv('DATABASE_SQLALCHEMY_URL') or 'sqlite:///session.db',
+    "SQLALCHEMY_DATABASE_URI": getenv('DATABASE_SQLALCHEMY_URL'),
     "SQLALCHEMY_TRACK_MODIFICATIONS": False,
 }
 app.config.update(settings)
 db = SQLAlchemy(app)
-scheduler = APScheduler(app=app)
+
+scheduler = APScheduler()
+scheduler.init_app(app)
+scheduler.start()
 
 
 class Session(db.Model):
     sessionId = db.Column(db.Text, primary_key=True)
-    sessionMap = db.Column(db.Text, unique=True, nullable=True)
+    sessionMap = db.Column(db.Text, nullable=True)
     sessionTime = db.Column(db.DateTime(timezone=True), nullable=True)
 
 
@@ -170,20 +174,20 @@ def create_database():
         db.create_all()
 
 
+@scheduler.task("interval", id="DbCLeaner", seconds=1800)
 def clearOldSession():
-    for data in Session.query.all():
-        seconds = (datetime.now() - data.sessionTime).seconds
-        if seconds > 1800:
-            Session.query.filter_by(sessionId=data.sessionId).delete()
-            db.session.commit()
-    with db.engine.begin() as conn:
-        conn.execute('vacuum')
+    with app.app_context():
+        for data in Session.query.all():
+            seconds = (datetime.now(timezone.utc) - data.sessionTime).seconds
+            if seconds > 1800:
+                Session.query.filter_by(sessionId=data.sessionId).delete()
+                db.session.commit()
+        with db.engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
+            conn.execute(text("VACUUM ANALYZE"))
 
 
 
 if __name__ == '__main__':
     with app.app_context():
         create_database()
-        scheduler.add_job('DBMaintainer', clearOldSession, trigger='interval', seconds=300)
-        scheduler.start()
         app.run("0.0.0.0")

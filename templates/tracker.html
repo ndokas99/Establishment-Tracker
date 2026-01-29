@@ -5,9 +5,9 @@
 	<meta http-equiv="X-UA-Compatible" content="IE=edge">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='/favicon.ico') }}">
-    <script src="{{ url_for('static', filename='js/jquery-3.5.1.js') }}"></script>
-	<link href="{{ url_for('static', filename='css/bootstrap.min.css') }}" rel="stylesheet" type="text/css">
-	<script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" crossorigin="anonymous">
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js" crossorigin="anonymous"></script>
 	<style>
         body {
             background: url({{ url_for('static', filename='media/images.jpeg') }}) no-repeat fixed;
@@ -112,13 +112,13 @@
 			<table class="table table-bordered">
 				<thead>
 					<tr class="bg-primary text-white">
-						<th>Establishment</th>
+						<th>{{ establishment }}</th>
 					</tr>
 				</thead>
 				<tbody>
                     {% for est in details %}
                         <tr>
-						    <td class="td" data-target="#est{{ est['id'] }}" data-toggle="modal">{{ est['name'] }}</td>
+						    <td class="td" data-target="#est{{ est['id'] }}" data-toggle="modal">{{ est['name'] | title }} ({{ est['distance'] }}km)</td>
 					    </tr>
                     {% endfor %}
 				</tbody>
@@ -154,41 +154,6 @@
                                     {% endfor %}
                                 </tbody>
                             </table>
-                            <p class="h4 text-primary">Order List</p>
-                            {% if est["type"] == "restaurant" %}
-                                <table class="table table-bordered">
-                                    <thead></thead>
-                                    <tbody>
-                                        <tr>
-                                            <th colspan="2">FOOD</th>
-                                        </tr>
-                                        <tr>
-                                            <td>Sadza<br>Rice<br>Spaghetti<br>Macaroni</td>
-                                            <td>Chicken<br>Beef<br>Fish<br>Pork<br>Beans<br>Vegetables<br>Lettuce<br>Cabbage</td>
-                                        </tr>
-                                        <tr>
-                                            <th colspan="2">DRINKS</th>
-                                        </tr>
-                                        <tr>
-                                            <td>Orange Juice<br>Grape Juice<br>Coca Cola<br>Fanta<br>Sprite</td>
-                                            <td>Amarula<br>Two Keys<br>Eagle Lager<br>Zambezi Lager<br>Heineken</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            {% else %}
-                                <table class="table table-bordered">
-                                    <thead>
-                                        <th colspan>FOOD</th>
-                                        <th colspan="2">DRINKS</th>
-                                    </thead>
-                                    <tbody>
-                                        <tr>
-                                            <td>Quarter chicken<br>Ice Cream<br>Pizza<br>Chicken Pie<br>Pork Pie</td>
-                                            <td>Cascade<br>Coca Cola<br>Mirinda<br>Pepsi<br>Mountain Dew</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            {% endif %}
                         </div>
                     </div>
                 </div>
@@ -215,7 +180,7 @@
                     500: function () {
                         window.location.href = '/';
                     }
-                },
+                }
             });
             fixSizes();
         });

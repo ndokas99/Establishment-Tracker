@@ -1,16 +1,21 @@
-from flask import Flask, render_template, render_template_string, request, \
-    make_response, jsonify, session, redirect, url_for, send_from_directory
+import overpy.exception
+from flask import Flask, render_template, render_template_string, request, make_response, jsonify, session, redirect, \
+    url_for, flash
 from sqlalchemy import text
-from sqlalchemy.exc import IntegrityError
-from flask_sqlalchemy import SQLAlchemy
 from flask_apscheduler import APScheduler
+
 from folium import Map, Icon, Marker, Circle
 from overpy import Overpass
-from math import cos, sin, atan2, sqrt, pi
+
+from math import cos
 from datetime import datetime, timezone
 from functools import lru_cache
 from uuid import uuid4
 from os import path, getenv
+
+from models import db, Session, create_database
+from utils import calc_dist, est_map
+
 
 BASE_DIR = path.dirname(path.dirname(path.abspath(__file__)))
 
@@ -18,44 +23,24 @@ app = Flask(__name__,
             template_folder=path.join(BASE_DIR, "templates"),
             static_folder=path.join(BASE_DIR, "static"))
 
-
 app.debug = False
-settings = {
+
+app.config.update({
     "SECRET_KEY": 'H475GGH58H4DG374H9GY48THT85',
-    "SQLALCHEMY_DATABASE_URI": getenv('DATABASE_SQLALCHEMY_URL'),
+    "SQLALCHEMY_DATABASE_URI": getenv('DATABASE_SQLALCHEMY_URL') or "sqlite:///database.db",
     "SQLALCHEMY_TRACK_MODIFICATIONS": False,
-}
-app.config.update(settings)
-db = SQLAlchemy(app)
+})
+
+db.init_app(app)
 
 scheduler = APScheduler()
 scheduler.init_app(app)
 scheduler.start()
 
 
-class Session(db.Model):
-    sessionId = db.Column(db.Text, primary_key=True)
-    sessionMap = db.Column(db.Text, nullable=True)
-    sessionTime = db.Column(db.DateTime(timezone=True), nullable=True)
-
-
 @app.route('/')
 def index():
-    try:
-        if Session.query.filter_by(sessionId=session['sid']).first():
-            return render_template("index.html")
-        else:
-            raise KeyError
-    except KeyError:
-        session['sid'] = str(uuid4())
-        try:
-            user = Session(sessionId=session['sid'], sessionTime=datetime.now())
-            db.session.add(user)
-            db.session.commit()
-            return render_template("index.html")
-        except IntegrityError:
-            del session['sid']
-            return url_for('index')
+    return render_template("index.html", establishments=est_map.items())
 
 
 @app.route('/unsupported')
@@ -65,44 +50,51 @@ def unavailable():
 
 @app.route('/track', methods=['POST'])
 def track():
-    session['lat1'], session['lon1'], session['dist'] = request.get_json().values()
-    return make_response(jsonify({}))
+    if session.get('sid'):
+        if Session.query.filter_by(sessionId=session['sid']).first():
+            pass
+        else:
+            user = Session(sessionId=session['sid'], sessionTime=datetime.now(timezone.utc))
+            db.session.add(user)
+            db.session.commit()
+
+        session['lat1'], session['lon1'], session['dist'], session['est_type'] = request.get_json().values()
+        return make_response(jsonify({}))
+
+    else:
+        session['sid'] = str(uuid4())
+        return url_for('track')
 
 
 @lru_cache
-def create_markers(distance, lat, lon):
-    def calcDist(lat2, lon2):
-        lat1 = session['lat1']
-        lon1 = session['lon1']
-        phi1, phi2 = lat1 * pi / 180, lat2 * pi / 180
-        phi_diff = (lat2 - lat1) * pi / 180
-        lambda_diff = (lon2 - lon1) * pi / 180
-        a = sin(phi_diff / 2) ** 2 + cos(phi1) * cos(phi2) * sin(lambda_diff / 2) ** 2
-        c = 2 * atan2(sqrt(a), sqrt(1 - a))
-        return round(6371 * c, 2)
+def create_markers(cache, distance, lat, lon):
+    try:
+        results = Overpass(retry_timeout=900).query(f"""
+            [timeout:900][maxsize:1073741824];
+            node(around: {distance * 1000}, {lat}, {lon})
+            ["amenity"~"{session['est_type']}"]
+            ["name"];
+            out body;
+        """)
+    except overpy.exception.OverpassGatewayTimeout:
+        flash("The server timed out, try to rerun your request.")
+        return redirect('/')
 
-    results = Overpass().query(f"""
-        node(around: {distance * 1000}, {lat}, {lon})
-        ["amenity"~"restaurant|food"]
-        ["name"];
-        out body;
-    """)
     details = []
-
     for node in results.nodes:
         nodeLat = float(node.lat)
         nodeLon = float(node.lon)
         detail = {
-            "id": f"est{node.id}",
+            "id": f"{node.id}",
             "lat": nodeLat,
             "lon": nodeLon,
             "name": node.tags["name"],
             "type": node.tags["amenity"],
-            "distance": calcDist(nodeLat, nodeLon)
+            "distance": calc_dist(nodeLat, nodeLon)
         }
 
-        ids = [["street", "addr:street"], ["opening hours", "opening_hours"], ["cuisine", "cuisine"],
-               ["takeaway", "takeaway"], ["outdoor seating", "outdoor_seating"], ["internet access", "internet_access"]]
+        ids = [["street", "addr:street"], ["opening hours", "opening_hours"], ["internet access", "internet_access"],
+               ["phone", "phone"], ["email", "email"]]
 
         for key, val in ids:
             try:
@@ -115,7 +107,7 @@ def create_markers(distance, lat, lon):
 
 
 @app.route('/showMap')
-def showMap():
+def show_map():
     try:
         lat1, lon1, dist = session['lat1'], session['lon1'], session['dist']
     except KeyError:
@@ -123,68 +115,50 @@ def showMap():
 
     latDiff = (360 / 40075) * dist
     lonDiff = (360 / (cos(lat1) * 40075))
-    bounds = [[lat1 - latDiff, lon1 - lonDiff],
-              [lat1 + latDiff, lon1 + lonDiff]]
+    bounds = [[lat1 - latDiff, lon1 - lonDiff], [lat1 + latDiff, lon1 + lonDiff]]
 
-    mainMap = Map(location=[lat1, lon1],
-                  min_lat=bounds[0][0], min_lon=bounds[0][1],
-                  max_lat=bounds[1][0], max_lon=bounds[1][1],
-                  zoom_start=11)
+    mainMap = Map(location=[lat1, lon1], min_lat=bounds[0][0], min_lon=bounds[0][1], max_lat=bounds[1][0], max_lon=bounds[1][1], zoom_start=15)
+    Marker(location=[lat1, lon1], tooltip="You are here", icon=Icon(color="red", icon="user")).add_to(mainMap)
+    Circle(location=(lat1, lon1), radius=dist * 1000).add_to(mainMap)
 
-    Marker(location=[lat1, lon1],
-           tooltip="You are here",
-           icon=Icon(color="red", icon="user")
-           ).add_to(mainMap)
-
-    Circle(location=(lat1, lon1),
-           radius=dist * 1000).add_to(mainMap)
-
-    details = create_markers(dist, lat1, lon1)
+    details = create_markers(session['est_type'], dist, lat1, lon1)
+    if not isinstance(details, list):
+        flash("The server had an error, try to rerun your request.")
+        return redirect('/')
 
     for detail in details:
-        if detail["type"] == "restaurant":
-            icon = "cutlery"
-        else:
-            icon = "shopping-basket"
-        Marker(location=[detail["lat"], detail["lon"]],
-               tooltip=f"{detail['name']}",
-               icon=Icon(color="blue", icon=icon, prefix="fa")
-               ).add_to(mainMap)
+        Marker(
+            location=[detail["lat"], detail["lon"]], tooltip=f"{detail['name']}", icon=Icon(color="blue", icon="building", prefix="fa")
+        ).add_to(mainMap)
 
-    try:
-        user = Session.query.filter_by(sessionId=session['sid']).first()
+    user = Session.query.filter_by(sessionId=session['sid']).first()
+    if user:
         user.sessionMap = mainMap.get_root().render()
         db.session.commit()
-    except AttributeError:
+        return render_template("tracker.html", details=details, establishment=est_map[session['est_type']])
+    else:
         return redirect('/')
-    return render_template("tracker.html", details=details)
 
 
 @app.route('/map')
-def embedMap():
-    try:
-        user = Session.query.filter_by(sessionId=session['sid']).first()
+def embed_map():
+    user = Session.query.filter_by(sessionId=session['sid']).first()
+    if user:
         return render_template_string(user.sessionMap)
-    except (KeyError, TypeError, AttributeError):
+    else:
         return redirect('/', 500)
 
 
-def create_database():
-    if not path.exists("session.db"):
-        db.create_all()
-
-
-@scheduler.task("interval", id="DbCLeaner", seconds=1800)
-def clearOldSession():
+@scheduler.task("interval", id="DbCLeaner", seconds=300)
+def clear_old_session():
     with app.app_context():
         for data in Session.query.all():
-            seconds = (datetime.now(timezone.utc) - data.sessionTime).seconds
-            if seconds > 1800:
+            seconds = (datetime.now() - data.sessionTime).seconds
+            if seconds > 300:
                 Session.query.filter_by(sessionId=data.sessionId).delete()
                 db.session.commit()
-        with db.engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
-            conn.execute(text("VACUUM ANALYZE"))
-
+        #with db.engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
+        #    conn.execute(text("VACUUM ANALYZE"))
 
 
 if __name__ == '__main__':

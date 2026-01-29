@@ -1,4 +1,3 @@
-import overpy.exception
 from flask import Flask, render_template, render_template_string, request, make_response, jsonify, session, redirect, \
     url_for, flash
 from sqlalchemy import text
@@ -6,6 +5,7 @@ from flask_apscheduler import APScheduler
 
 from folium import Map, Icon, Marker, Circle
 from overpy import Overpass
+import overpy.exception
 
 from math import cos
 from datetime import datetime, timezone
@@ -13,8 +13,8 @@ from functools import lru_cache
 from uuid import uuid4
 from os import path, getenv
 
-from models import db, Session, create_database
-from utils import calc_dist, est_map
+from api.models import db, Session, create_database
+from api.utils import calc_dist, est_map
 
 
 BASE_DIR = path.dirname(path.dirname(path.abspath(__file__)))

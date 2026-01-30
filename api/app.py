@@ -4,8 +4,8 @@ from sqlalchemy import text
 from flask_apscheduler import APScheduler
 
 from folium import Map, Icon, Marker, Circle
-from overpy import Overpass
-import overpy.exception
+from overpy import Overpass, Result
+from overpy.exception import OverpassGatewayTimeout, OverpassUnknownContentType
 
 from math import cos
 from datetime import datetime, timezone
@@ -58,6 +58,7 @@ def track():
             db.session.add(user)
             db.session.commit()
 
+        session["rand"] = 0
         session['lat1'], session['lon1'], session['dist'], session['est_type'] = request.get_json().values()
         return make_response(jsonify({}))
 
@@ -67,18 +68,24 @@ def track():
 
 
 @lru_cache
-def create_markers(cache, distance, lat, lon):
+def create_markers(est_type, distance, lat, lon, cache_check):
+    lazy = False
     try:
         results = Overpass(retry_timeout=900).query(f"""
-            [timeout:900][maxsize:1073741824];
+            [out:json][timeout:900][maxsize:1073741824];
             node(around: {distance * 1000}, {lat}, {lon})
             ["amenity"~"{session['est_type']}"]
             ["name"];
-            out body;
+            out tags center;
         """)
-    except overpy.exception.OverpassGatewayTimeout:
-        flash("The server timed out, try to rerun your request.")
-        return redirect('/')
+    except (OverpassUnknownContentType, OverpassGatewayTimeout):
+        results = Result()
+        lazy = True
+        with app.app_context():
+            session['rand'] += 1
+        # flash("The server timed out, try to rerun your request.")
+        # return redirect('/')
+
 
     details = []
     for node in results.nodes:
@@ -103,7 +110,7 @@ def create_markers(cache, distance, lat, lon):
                 continue
         details.append(detail)
 
-    return sorted(details, key=lambda k: k['distance'])
+    return sorted(details, key=lambda k: k['distance']), lazy
 
 
 @app.route('/showMap')
@@ -121,7 +128,7 @@ def show_map():
     Marker(location=[lat1, lon1], tooltip="You are here", icon=Icon(color="red", icon="user")).add_to(mainMap)
     Circle(location=(lat1, lon1), radius=dist * 1000).add_to(mainMap)
 
-    details = create_markers(session['est_type'], dist, lat1, lon1)
+    details, lazy = create_markers(session['est_type'], dist, lat1, lon1, session['rand'])
     if not isinstance(details, list):
         flash("The server had an error, try to rerun your request.")
         return redirect('/')
@@ -135,7 +142,7 @@ def show_map():
     if user:
         user.sessionMap = mainMap.get_root().render()
         db.session.commit()
-        return render_template("tracker.html", details=details, establishment=est_map[session['est_type']])
+        return render_template("tracker.html", details=details, establishment=est_map[session['est_type']], lazy=lazy)
     else:
         return redirect('/')
 

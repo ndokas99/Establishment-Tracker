@@ -15,7 +15,7 @@ def calc_dist(lat2, lon2):
 
 est_map = {
     "restaurant|food|cafe": "Restaurants and food outlets",
-    "market|retail": "Super Markets",
+    "marketplace|supermarket|retail|trade|wholesale": "Super Markets and Shops",
     "bar|pub|biergarten": "Bars and Pubs",
     "hotel|motel|resort|lodge|cabin": "Hotels and motels",
     "bank|atm|payment_terminal|money_transfer": "Banking and financial institutions",
@@ -28,6 +28,7 @@ est_map = {
     "fuel": "Gas Stations",
     "rental": "Rental services",
     "arts_centre|casino|music_venue": "Entertainment and Arts",
+    "sports|recreation|fitness|leisure|outdoors": "Sports centres and gyms",
     "church|temple|religion": "Church and Temples",
     "theatre|cinema": "Movie and theatre",
     "clinic|dentist|doctors|hospital|pharmacy|veterinary": "Hospital and health institutions",

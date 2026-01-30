@@ -89,7 +89,7 @@
             }
             .row {
                 display: grid;
-                /*grid-template-rows: 50% 50%;*/
+                grid-template-rows: 35% 65%;
             }
             .row div:first-child{
                 border: hidden;
@@ -161,6 +161,10 @@
         </div>
     {% endfor %}
     <script>
+        function warn(){
+            if(`{{ lazy }}`=== "True")
+                alert("Warning: Establishments listed may be incomplete. You can go back and rerun.");
+        }
         function fixSizes(){
             let height = window.innerHeight;
             if(window.innerWidth <= 550){
@@ -183,6 +187,7 @@
                 }
             });
             fixSizes();
+            warn();
         });
         $(window).resize(fixSizes);
     </script>

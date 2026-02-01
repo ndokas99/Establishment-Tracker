@@ -59,7 +59,7 @@ def track():
             db.session.commit()
 
         session["rand"] = 0
-        session['lat1'], session['lon1'], session['dist'], session['est_type'] = request.get_json().values()
+        session['lat1'], session['lon1'], session['dist'], session['est_values'] = request.get_json().values()
         return make_response(jsonify({}))
 
     else:
@@ -68,13 +68,16 @@ def track():
 
 
 @lru_cache
-def create_markers(est_type, distance, lat, lon, cache_check):
+def create_markers(est_values, distance, lat, lon, cache_check):
     lazy = False
+    key = est_map[est_values][1][:-1]
+    sign = est_map[est_values][1][-1]
     try:
+        way_values = ["hotel|motel|resort|lodge|cabin|museum", "worship", "parking", ""]
         results = Overpass(retry_timeout=900).query(f"""
             [out:json][timeout:900][maxsize:1073741824];
-            node(around: {distance * 1000}, {lat}, {lon})
-            ["amenity"~"{session['est_type']}"]
+            {"way" if est_values in way_values else "node"}(around: {distance * 1000}, {lat}, {lon})
+            ["{key}"{sign}"{est_values}"]
             ["name"];
             out tags center;
         """)
@@ -86,28 +89,37 @@ def create_markers(est_type, distance, lat, lon, cache_check):
         # flash("The server timed out, try to rerun your request.")
         # return redirect('/')
 
-
     details = []
-    for node in results.nodes:
-        nodeLat = float(node.lat)
-        nodeLon = float(node.lon)
+
+    # todo: add functionality to combine nodes and ways if both are populated
+
+    for item in (results.nodes if results.nodes else results.ways):
+        itemLat = float(item.lat if results.nodes else item.center_lat)
+        itemLon = float(item.lon if results.nodes else item.center_lon)
         detail = {
-            "id": f"{node.id}",
-            "lat": nodeLat,
-            "lon": nodeLon,
-            "name": node.tags["name"],
-            "type": node.tags["amenity"],
-            "distance": calc_dist(nodeLat, nodeLon)
+            "id": f"{item.id}",
+            "lat": itemLat,
+            "lon": itemLon,
+            "coordinates": f"{(itemLat, itemLon)}",
+            "name": item.tags["name"],
+            "type": key,
+            "distance": calc_dist(itemLat, itemLon)
         }
 
-        ids = [["street", "addr:street"], ["opening hours", "opening_hours"], ["internet access", "internet_access"],
-               ["phone", "phone"], ["email", "email"]]
+        ids = [
+            ["street", "addr:street"],
+            ["opening hours", "opening_hours"],
+            ["internet access", "internet_access"],
+            ["phone", "phone"],
+            ["email", "email"],
+            ["wheelchair access", "wheelchair"],
+            ["cash payment", "payment:cash"],
+            ['card payment', "payment:credit_cards"]
+        ]
 
-        for key, val in ids:
-            try:
-                detail[key] = node.tags[val]
-            except KeyError:
-                continue
+        for prop, val in ids:
+            if item.tags.get(val):
+                detail[prop] = item.tags[val]
         details.append(detail)
 
     return sorted(details, key=lambda k: k['distance']), lazy
@@ -128,7 +140,7 @@ def show_map():
     Marker(location=[lat1, lon1], tooltip="You are here", icon=Icon(color="red", icon="user")).add_to(mainMap)
     Circle(location=(lat1, lon1), radius=dist * 1000).add_to(mainMap)
 
-    details, lazy = create_markers(session['est_type'], dist, lat1, lon1, session['rand'])
+    details, lazy = create_markers(session['est_values'], dist, lat1, lon1, session['rand'])
     if not isinstance(details, list):
         flash("The server had an error, try to rerun your request.")
         return redirect('/')
@@ -142,7 +154,7 @@ def show_map():
     if user:
         user.sessionMap = mainMap.get_root().render()
         db.session.commit()
-        return render_template("tracker.html", details=details, establishment=est_map[session['est_type']], lazy=lazy)
+        return render_template("tracker.html", details=details, establishment=est_map[session['est_values']][0], lazy=lazy)
     else:
         return redirect('/')
 

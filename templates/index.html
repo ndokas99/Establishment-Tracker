@@ -74,8 +74,8 @@
 			<p class="card-text">The establishments will be listed in order of closest to furthest.</p>
 			<p class="card-text">Press the button below to enable the location tracker and select <b>Allow</b>. You will be directed to map if tracker is functional.</p>
             <select class="input-group-text" name="type" id="est">
-                {% for val, name in establishments %}
-                    <option value="{{ val }}">{{ name }}</option>
+                {% for key, val in establishments %}
+                    <option value="{{ key }}">{{ val[0] }}</option>
                 {% endfor %}
             </select>
             <br>
@@ -93,7 +93,7 @@
                     let geo = navigator.geolocation.watchPosition(
                         () => {},
                         () => {},
-                        { maximumAge: 2000, timeout: 2000, enableHighAccuracy: true }
+                        { maximumAge: 1000, timeout: 2000, enableHighAccuracy: true }
                     );
                     window.navigator.geolocation.clearWatch(geo);
                     x += 1;
@@ -112,6 +112,8 @@
                 let data = {
                     x: position.coords.latitude,
                     y: position.coords.longitude,
+                    //x: 40.730610,
+                    //y: -73.935242,
                     d: km.val()==='' ? 1.0 : Number.parseFloat(km.val()),
                     e: est.val()
                 };
@@ -129,7 +131,7 @@
                 });
             },() => {
                 enable();
-            },{ maximumAge: 3000, timeout: 5000, enableHighAccuracy: true });
+            },{ maximumAge: 2000, timeout: 5000, enableHighAccuracy: true });
 		}
 	</script>
 </body>

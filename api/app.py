@@ -1,6 +1,5 @@
 from flask import Flask, render_template, render_template_string, request, make_response, jsonify, session, redirect, \
     url_for, flash
-from sqlalchemy import text
 from flask_apscheduler import APScheduler
 
 from folium import Map, Icon, Marker, Circle
@@ -13,7 +12,7 @@ from functools import lru_cache
 from uuid import uuid4
 from os import path, getenv
 
-from api.models import db, Session, create_database
+from api.models import db, Session
 from api.utils import calc_dist, est_map
 
 
@@ -74,20 +73,23 @@ def create_markers(est_values, distance, lat, lon, cache_check):
     sign = est_map[est_values][1][-1]
     try:
         way_values = ["hotel|motel|resort|lodge|cabin|museum", "worship", "parking", ""]
-        results = Overpass(retry_timeout=900).query(f"""
-            [out:json][timeout:900][maxsize:1073741824];
-            {"way" if est_values in way_values else "node"}(around: {distance * 1000}, {lat}, {lon})
-            ["{key}"{sign}"{est_values}"]
-            ["name"];
-            out tags center;
-        """)
+
+        query = f"""[out:json][timeout:900][maxsize:1073741824];
+{"way" if est_values in way_values else "node"}(around:{distance * 1000},{lat},{lon})
+["{key}"{sign}"{est_values}"]
+["name"];
+out tags center;"""
+
+        api = Overpass(retry_timeout=900)
+        api.url = "https://maps.mail.ru/osm/tools/overpass/api/interpreter"
+        results = api.query(query)
     except (OverpassUnknownContentType, OverpassGatewayTimeout):
         results = Result()
         lazy = True
         with app.app_context():
             session['rand'] += 1
-        # flash("The server timed out, try to rerun your request.")
-        # return redirect('/')
+        flash("Results may be incomplete, rerun request to try getting complete results.")
+        #return redirect('/')
 
     details = []
 
@@ -127,10 +129,12 @@ def create_markers(est_values, distance, lat, lon, cache_check):
 
 @app.route('/showMap')
 def show_map():
-    try:
+    """try:
         lat1, lon1, dist = session['lat1'], session['lon1'], session['dist']
     except KeyError:
-        return redirect("/")
+        return redirect("/")"""
+
+    lat1, lon1, dist = session['lat1'], session['lon1'], session['dist']
 
     latDiff = (360 / 40075) * dist
     lonDiff = (360 / (cos(lat1) * 40075))
@@ -180,7 +184,10 @@ def clear_old_session():
         #    conn.execute(text("VACUUM ANALYZE"))
 
 
+with app.app_context():
+    db.create_all()
+
+
 if __name__ == '__main__':
-    with app.app_context():
-        create_database()
-        app.run("0.0.0.0")
+    app.run("0.0.0.0")
+
